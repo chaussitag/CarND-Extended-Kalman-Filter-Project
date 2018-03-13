@@ -29,6 +29,9 @@ public:
   */
   MatrixXd CalculateJacobian(const VectorXd& x_state);
 
+  static constexpr double EPS = {0.000001};
+  static constexpr double PI  = {3.1415926535798};
+
 };
 
 #endif /* TOOLS_H_ */
