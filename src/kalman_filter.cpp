@@ -12,8 +12,9 @@ static double normalizeAngle(double phi) {
     return phi;
   }
 
-  double two_pi = 2.0 * Tools::PI;
-  double delta = (phi < -Tools::PI) ? two_pi : -two_pi;
+  static const auto two_pi = 2.0 * Tools::PI;
+
+  const auto delta = (phi < -Tools::PI) ? two_pi : -two_pi;
   while (phi < -Tools::PI || phi >= Tools::PI) {
     phi += delta;
   }
@@ -53,47 +54,41 @@ void KalmanFilter::Update(const VectorXd &z) {
   */
   VectorXd z_pred = H_ * x_;
   VectorXd y = z - z_pred;
-  MatrixXd Ht = H_.transpose();
-  MatrixXd S = H_ * P_ * Ht + R_;
-  MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
 
-  //new estimate
-  x_ = x_ + (K * y);
-  long x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
+  UpdateCommon(y);
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
   /**
     * update the state by using Extended Kalman Filter equations
   */
-  auto px = x_(0);
-  auto py = x_(1);
-  auto vx = x_(2);
-  auto vy = x_(3);
-  auto d = sqrt(px * px + py * py);
+  const auto py = x_(1);
+  const auto vx = x_(2);
+  const auto px = x_(0);
+  const auto vy = x_(3);
+  const auto d = sqrt(px * px + py * py);
 
   VectorXd z_pred(z.size());
   // prevent division by zero
-  double rodot = (d < Tools::EPS) ? 0.0 : (px * vx + py * vy) / d;
+  const auto rodot = (d < Tools::EPS) ? 0.0 : (px * vx + py * vy) / d;
   z_pred << d, atan2(py, px), rodot;
   VectorXd y = z - z_pred;
+
   // adjust the angle phi to [-pi, pi)
   y(1) = normalizeAngle(y(1));
 
+  UpdateCommon(y);
+
+}
+
+void KalmanFilter::UpdateCommon(const Eigen::VectorXd &y) {
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd Si = S.inverse();
   MatrixXd PHt = P_ * Ht;
   MatrixXd K = PHt * Si;
 
-  //new estimate
+  // new estimate
   x_ = x_ + (K * y);
-  auto x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
-
+  P_ -= K * H_ * P_;
 }
